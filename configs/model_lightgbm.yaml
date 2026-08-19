@@ -1,0 +1,19 @@
+# Cấu hình LightGBM (model chính)
+# Xem: docs/01_ideation.md (mục 8 — so sánh model), docs/02_pipeline_architecture.md
+
+lightgbm:
+  objective: "regression"
+  metric: "rmse"
+  boosting_type: "gbdt"
+  num_leaves: 31
+  max_depth: 6
+  learning_rate: 0.05
+  num_boost_round: 200
+  verbose: -1
+  random_state: 42
+
+  # Xử lý class imbalance (nếu cần)
+  # scale_pos_weight: 1
+
+  # Early stopping
+  early_stopping_rounds: 20

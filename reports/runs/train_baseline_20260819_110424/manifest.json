@@ -1,0 +1,60 @@
+{
+  "run_id": "train_baseline_20260819_110424",
+  "pipeline_name": "train_baseline",
+  "started_at": "2026-08-19T11:04:24.108241+00:00",
+  "finished_at": "2026-08-19T11:04:24.737376+00:00",
+  "status": "success",
+  "config_snapshot": {
+    "data": {
+      "data_paths": {
+        "raw_dir": "data/raw",
+        "interim_dir": "data/interim",
+        "processed_dir": "data/processed",
+        "predictions_dir": "data/predictions",
+        "reports_dir": "reports"
+      },
+      "raw_files": {
+        "train": "train.csv",
+        "test": "test.csv",
+        "features": "features.csv",
+        "stores": "stores.csv"
+      },
+      "temporal_split": {
+        "train_end_date": "2011-12-31",
+        "valid_end_date": "2012-12-31"
+      },
+      "target_column": "Weekly_Sales",
+      "store_column": "Store",
+      "date_column": "Date",
+      "date_format": "%Y-%m-%d",
+      "expected_raw_files": {
+        "train.csv": 421570,
+        "test.csv": 115064,
+        "features.csv": 8190,
+        "stores.csv": 45
+      }
+    },
+    "baseline": {
+      "baseline": {
+        "strategy": "same_week_last_year",
+        "decision_tree": {
+          "max_depth": 3,
+          "min_samples_split": 20,
+          "min_samples_leaf": 10,
+          "random_state": 42
+        }
+      }
+    }
+  },
+  "metrics_summary": {
+    "naive_same_week_last_year": {
+      "wmae": 66469.9439651416,
+      "wmape": 0.06885419367324687
+    },
+    "simple_decision_tree": {
+      "wmae": 455746.4454104835,
+      "wmape": 0.6595561694715075
+    }
+  },
+  "horizon_weeks": 52
+}

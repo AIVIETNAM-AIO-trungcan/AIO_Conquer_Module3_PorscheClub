@@ -1,0 +1,26 @@
+# Cấu hình Optuna (hyperparameter tuning)
+# Xem: docs/02_pipeline_architecture.md (giai đoạn 5b)
+
+optuna:
+  n_trials: 100  # số lần thử
+  timeout: 3600  # giây (1 giờ)
+  n_jobs: 1  # số process song song
+  sampler: "TPE"  # Tree-structured Parzen Estimator
+  seed: 42
+
+  # Search space (tùy model)
+  lightgbm_search_space:
+    num_leaves: [10, 100]
+    max_depth: [3, 10]
+    learning_rate: [0.001, 0.1]
+    num_boost_round: [100, 500]
+    reg_alpha: [0, 1]
+    reg_lambda: [0, 1]
+
+  xgboost_search_space:
+    max_depth: [3, 10]
+    learning_rate: [0.001, 0.1]
+    subsample: [0.5, 1.0]
+    colsample_bytree: [0.5, 1.0]
+    reg_alpha: [0, 1]
+    reg_lambda: [0, 1]

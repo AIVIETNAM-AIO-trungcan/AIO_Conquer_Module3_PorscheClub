@@ -1,0 +1,5 @@
+run_id,started_at,pipeline_name,model_name,wmae,wmape,coverage_95,status
+train_baseline_20260819_110424,2026-08-19T11:04:24.108241+00:00,train_baseline,naive_same_week_last_year,66469.9439651416,0.06885419367324687,,success
+train_baseline_20260819_110424,2026-08-19T11:04:24.108241+00:00,train_baseline,simple_decision_tree,455746.4454104835,0.6595561694715075,,success
+train_baseline_20260819_111103,2026-08-19T11:11:03.378734+00:00,train_baseline,naive_same_week_last_year,66469.9439651416,0.06885419367324687,,success
+train_baseline_20260819_111103,2026-08-19T11:11:03.378734+00:00,train_baseline,simple_decision_tree,455746.4454104835,0.6595561694715075,,success

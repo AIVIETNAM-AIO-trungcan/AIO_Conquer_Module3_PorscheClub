@@ -1,0 +1,23 @@
+# Cấu hình Split Conformal Prediction (khoảng tin cậy 95%)
+# Xem: docs/08_uncertainty_conformal.md, docs/02_pipeline_architecture.md (giai đoạn 6b)
+
+conformal:
+  # Độ tin cậy: 1 - alpha = 95%
+  alpha: 0.05
+
+  # Tỷ lệ calibration set từ valid_window
+  # calib_ratio = 0.5 → 50% Optuna, 50% calibration (đã chốt, xem docs/00_decisions.md
+  # muc "Ty le tach calib_window tu valid_window" va docs/08_uncertainty_conformal.md muc 3)
+  calib_ratio: 0.5
+
+  # Phương pháp calibration
+  method: "split_conformal"  # hoặc "cross_conformal" (nâng cao)
+
+  # Adaptive hoặc fixed quantile
+  adaptive_quantile: false  # hiện tại dùng fixed
+
+# Ràng buộc QUAN TRỌNG:
+# - calib_window phải KHÔNG trùng valid_window
+# - calib_window phải nằm SAU train_window (thời gian)
+# - KHÔNG dùng test_window để tính residual
+# Xem CLAUDE.md mục 4 rule 11

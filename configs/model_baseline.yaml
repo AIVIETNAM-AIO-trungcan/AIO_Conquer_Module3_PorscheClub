@@ -1,0 +1,14 @@
+# Cấu hình Baseline Model
+# Xem: docs/02_pipeline_architecture.md (giai đoạn 4-5)
+
+baseline:
+  # Chiến lược 1: Naive same-week-last-year
+  # Chiến lược 2: Simple Decision Tree (để học)
+  strategy: "same_week_last_year"  # hoặc "simple_decision_tree"
+
+  # Nếu dùng Decision Tree:
+  decision_tree:
+    max_depth: 3
+    min_samples_split: 20
+    min_samples_leaf: 10
+    random_state: 42

@@ -1,0 +1,36 @@
+# Cấu hình Feature Engineering
+# Xem: docs/02_pipeline_architecture.md (giai đoạn 3), docs/specs/
+
+feature_blocks:
+  lag_rolling:
+    enabled: true
+    lags: [1, 4, 12, 26, 52]  # tuần
+    rolling_windows: [4, 12, 26]  # tuần
+    fill_method: "ffill"  # forward-fill cho missing
+
+  calendar:
+    enabled: true
+    use_month: true
+    use_quarter: true
+    use_day_of_week: true
+    use_week_of_year: true
+
+  markdown_promo:
+    enabled: true
+    # Flag: has_markdown, missing_markdown_flag
+    # Xem: CLAUDE.md mục 4 rule 9
+
+  store_encoding:
+    enabled: true
+    encoding_type: "target_encoding"  # hoặc "label_encoding"
+    # Tính toán từ train set, áp dụng cho valid/test
+    # Đổi tên từ store_dept_encoding (2026-08-19): đơn vị dự báo đã bỏ Dept,
+    # xem docs/00_decisions.md "Đổi đơn vị dự báo: (Store, Dept, Date) -> (Store, Date)"
+
+  macro:
+    enabled: true
+    # Features từ features.csv: Temperature, Fuel_Price, CPI, Unemployment
+
+# Hiện tại skip:
+# - holiday_flags: đã có IsHoliday từ raw data
+# - trend_detrending: tùy chọn, xem 01_ideation.md

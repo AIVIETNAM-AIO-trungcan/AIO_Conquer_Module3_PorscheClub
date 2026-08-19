@@ -1,0 +1,80 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"env/Scripts/python.exe\" -m pytest tests/test_splitting/ -v)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/block_raw_data_write.py"],
+            "statusMessage": "Kiem tra data/raw/ bat bien..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/block_requirements_txt.py"],
+            "statusMessage": "Kiem tra requirements.txt song song..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_dashboard_no_fit.py"],
+            "statusMessage": "Kiem tra app/ khong train model..."
+          },
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/check_leakage_keywords.py"],
+            "statusMessage": "Kiem tra leakage thoi gian trong features/splitting..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/remind_decisions_check.py"],
+            "statusMessage": "Doi chieu docs/00_decisions.md..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-Command",
+              "(New-Object Media.SoundPlayer 'C:\\Windows\\Media\\Windows Notify Messaging.wav').PlaySync()"
+            ],
+            "statusMessage": "Bao hieu hoan thanh..."
+          }
+        ]
+      }
+    ]
+  }
+}

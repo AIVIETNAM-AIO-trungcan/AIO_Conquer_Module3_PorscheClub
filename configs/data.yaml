@@ -1,0 +1,36 @@
+# Cấu hình dữ liệu (Data I/O)
+# Xem: docs/06_environment_setup.md, docs/03_data_io_diagram.md
+
+data_paths:
+  raw_dir: "data/raw"
+  interim_dir: "data/interim"
+  processed_dir: "data/processed"
+  predictions_dir: "data/predictions"
+  reports_dir: "reports"
+
+raw_files:
+  train: "train.csv"
+  test: "test.csv"
+  features: "features.csv"
+  stores: "stores.csv"
+
+temporal_split:
+  # Mốc cắt train/valid/test
+  # Format: YYYY-MM-DD
+  train_end_date: "2011-12-31"  # Tham khảo từ 02_pipeline_architecture.md
+  valid_end_date: "2012-12-31"
+  # test_end_date: được suy ra từ test.csv
+
+target_column: "Weekly_Sales"
+store_column: "Store"
+# dept_column đã bị loại bỏ - đơn vị dự báo đổi sang (Store, Date),
+# xem docs/00_decisions.md [2026-08-19] "Đổi đơn vị dự báo"
+date_column: "Date"
+date_format: "%Y-%m-%d"
+
+# Kiểm tra dữ liệu
+expected_raw_files:
+  train.csv: 421570
+  test.csv: 115064
+  features.csv: 8190
+  stores.csv: 45
