@@ -1,1 +1,1 @@
-Store,Date,IsHoliday,Weekly_Sales,Type,Size,Temperature,Fuel_Price,MarkDown1,MarkDown2,MarkDown3,MarkDown4,MarkDown5,CPI,Unemployment,Lag_1,Lag_52,Rolling_Mean_4w,Year,Month,WeekOfYear,Type_encoded
+Store,Date,IsHoliday,Weekly_Sales,Type,Size,Temperature,Fuel_Price,MarkDown1,MarkDown2,MarkDown3,MarkDown4,MarkDown5,CPI,Unemployment,Lag_1,Lag_52,Rolling_Mean_4w,Year,Month,WeekOfYear,Type_encoded,Lag_4,Lag_12
