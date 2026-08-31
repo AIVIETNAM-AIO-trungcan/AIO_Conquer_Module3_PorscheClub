@@ -1,0 +1,19 @@
+# Cấu hình Direct Multi-step (Decision Tree + Random Forest)
+# Xem: docs/00_decisions.md [2026-08-31] "Direct multi-step HORIZON=10, không chia nhóm"
+
+direct_multistep:
+  horizon: 10  # số bước dự báo xa (tuần) — KHÔNG chia nhóm, feature set giống mọi h
+
+  decision_tree:
+    max_depth: 12
+    min_samples_split: 5
+    min_samples_leaf: 2
+    random_state: 42
+
+  random_forest:
+    n_estimators: 200
+    max_depth: 12
+    min_samples_split: 5
+    min_samples_leaf: 2
+    n_jobs: -1
+    random_state: 42

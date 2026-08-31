@@ -13,7 +13,7 @@ Các quyết định về horizon/chiến lược/xử lý dữ liệu đã đư
 | Hạng mục | Lựa chọn đã chốt | Ngày chốt | Người quyết định | Lý do |
 |---|---|---|---|---|
 | Đơn vị dự báo | `(Store, Dept, Date)`, tần suất tuần (weekly) | 2026-08-18 | DTC | Khớp đúng granularity thật của `train.csv`/`test.csv`, xem `01_ideation.md` mục 2.1 |
-| Forecast horizon | Lựa chọn A — Direct multi-step, horizon = 39 tuần, chia 3 nhóm horizon: h=1-4, h=5-12, h=13-39 | 2026-08-18 | DTC | Khớp đúng bài toán Kaggle gốc (test.csv dài 39 tuần liên tiếp), cho phép dùng WMAE/WMAPE chuẩn để đối chiếu leaderboard; đánh đổi là feature engineering phức tạp hơn theo từng nhóm horizon vì lag gần không dùng được cho horizon xa — xem `01_ideation.md` mục 4 Lựa chọn A |
+| Forecast horizon | ~~Lựa chọn A — Direct multi-step, horizon = 39 tuần, chia 3 nhóm horizon: h=1-4, h=5-12, h=13-39~~ — GHI ĐÈ 2026-08-31, xem mục "Direct multi-step HORIZON=10, không chia nhóm" bên dưới | 2026-08-18 | DTC | Khớp đúng bài toán Kaggle gốc (test.csv dài 39 tuần liên tiếp), cho phép dùng WMAE/WMAPE chuẩn để đối chiếu leaderboard; đánh đổi là feature engineering phức tạp hơn theo từng nhóm horizon vì lag gần không dùng được cho horizon xa — xem `01_ideation.md` mục 4 Lựa chọn A |
 | Chiến lược (recursive/direct/hybrid) | Direct multi-step (không recursive) | 2026-08-18 | DTC | Đi kèm quyết định horizon ở trên; tránh sai số dồn (error accumulation) của recursive trên horizon dài 39 tuần |
 | Metric chính | **Cả WMAE và WMAPE**, cùng trọng số IsHoliday x5 — báo cáo song song trong mọi bảng metric | 2026-08-18 | DTC | WMAE khớp đúng luật đánh giá gốc Kaggle (đối chiếu leaderboard); WMAPE chuẩn hóa theo %, dễ so sánh giữa các Dept có quy mô doanh số khác nhau — không đánh đổi lẫn nhau nên báo cáo cả hai thay vì chọn một, xem `01_ideation.md` mục 6 |
 | Xử lý Weekly_Sales âm | Giữ nguyên, không clip về 0 | 2026-08-18 | DTC | 1.285 dòng âm là tín hiệu thật (trả hàng/điều chỉnh sổ sách), không phải nhiễu; không dùng loss/metric giả định target ≥ 0 (loại MSLE, Poisson loss) — xem `01_ideation.md` mục 2.5 và mục 3 vấn đề #1 |
@@ -29,6 +29,7 @@ Các quyết định về horizon/chiến lược/xử lý dữ liệu đã đư
 | Đơn vị dự báo (CẬP NHẬT 2026-08-19) | `(Store, Date)` — GHI ĐÈ quyết định `(Store, Dept, Date)` chốt 2026-08-18, xem mục chi tiết bên dưới | 2026-08-19 | DTC | Giảm độ phức tạp mô hình hóa (81 Dept/Store quá nhiều, nhiều chuỗi ngắn/thưa) + mục tiêu dashboard/báo cáo tập trung cấp Store dễ diễn giải hơn; hệ quả: không còn tạo được `submission.csv` đúng format Kaggle gốc |
 | Buffer nối train_window/valid_window cho Lag/Rolling/Macro | Gộp bảng (train + phần chưa biết target) trước khi tính lag/rolling/macro, tách lại sau — đã implement, chính thức hóa thành quy tắc kiến trúc (xem mục dưới) | 2026-08-19 | DTC | Loại bỏ NaN giả tạo ở các dòng đầu mỗi tập; đúng sơ đồ kiến trúc gốc; đã kiểm chứng bằng thực nghiệm không leakage |
 | Đồng bộ xử lý dữ liệu theo notebook (CẬP NHẬT 2026-08-31) | Đồng bộ `src/` theo `notebooks/01. Preprocessing.ipynb` — 6 điểm cụ thể (aggregate/join theo IsHoliday, MarkDown fillna(0), ffill cả 4 cột macro, macro lag52 cho valid, split theo tỷ lệ 2/3, Feature Engineering trước Split — CHỈ trong `run_train_baseline.py`), xem mục chi tiết bên dưới | 2026-08-31 | Team (DTC xác nhận) | Đồng bộ code giữa `src/sales_forecast/` và 2 nhánh git `feature--preprocessing_eda_data`/`feature/viet-eda-model` đang phát triển song song |
+| Direct multi-step HORIZON=10 (CẬP NHẬT 2026-08-31) | `HORIZON=10` tuần, KHÔNG chia nhóm (GHI ĐÈ horizon=39 chia 3 nhóm); chỉ Decision Tree + Random Forest; chỉ Direct (không recursive) — xem mục chi tiết bên dưới | 2026-08-31 | Team (DTC xác nhận) | Đồng bộ theo `notebooks/viet/multi_step/direct_way/direct_multimodel_DTree.ipynb` và `direct_multimodel_rf.ipynb` team đã hoàn thiện |
 
 ---
 
@@ -319,6 +320,35 @@ Danh sách đầy đủ 13 ngày (tuần kết thúc) được gắn `IsHoliday=
 **Kết quả đối chiếu sau khi áp dụng:** `pipelines/run_train_baseline.py` chạy thành công end-to-end. `train_window: 2700 dòng`, `valid_window: 1395 dòng` — khớp chính xác với số liệu notebook (`train_final.csv` 2700 dòng, `val_set.csv` 1395 dòng). Baseline mới: `naive_same_week_last_year` WMAE=59662.89, WMAPE=0.0599; `simple_decision_tree` WMAE=85249.10, WMAPE=0.0925 (con số không so sánh trực tiếp được với baseline cũ trước đây do thay đổi cả granularity IsHoliday, macro, và cơ chế split — ghi nhận như baseline mới chính thức từ thời điểm này). Toàn bộ `pytest tests/ -v` (62 test) pass, coverage tổng 89%.
 
 **Test case liên quan:** A47 (aggregate/join tách dòng theo IsHoliday), A48 (MarkDown fillna(0)), A51-A52 (đọc lags/rolling_windows từ config — không đổi hành vi so với hard-code cũ), cùng các test mới `test_macro_lag52_valid.py`, `test_ratio_split.py`, mở rộng `test_macro_forward_fill.py` cho Temperature/Fuel_Price — xem `docs/05_test_plan.md`.
+
+---
+
+## [2026-08-31] Direct multi-step HORIZON=10, không chia nhóm — GHI ĐÈ horizon=39 chia 3 nhóm
+
+**Bối cảnh:** Team đã hoàn thiện 2 notebook thử nghiệm chiến lược "Direct multi-step forecasting" tại `notebooks/viet/multi_step/direct_way/direct_multimodel_DTree.ipynb` và `direct_multimodel_rf.ipynb` — cả 2 dùng `HORIZON=10` tuần (10 model riêng biệt, mỗi model dự báo 1 horizon xa h=1..10), feature set giống nhau cho mọi horizon, KHÔNG chia nhóm theo khoảng horizon như quyết định "[2026-08-18] Forecast horizon & chiến lược dự báo" đã chốt trước đó (horizon=39, chia 3 nhóm h=1-4/5-12/13-39). Trước khi mang logic model vào `src/sales_forecast/`, đã đồng bộ code từ nhánh `feature--preprocessing_eda_data` sang `feature/viet-eda-model` bằng `git checkout` file-by-file (không merge/rebase, giữ lịch sử commit riêng biệt) để model dùng chung luồng dữ liệu đã đồng bộ theo `notebooks/01. Preprocessing.ipynb` (markdown fillna(0), macro forward-fill 4 cột, split theo tỷ lệ 2/3, Feature Engineering trước Split cục bộ).
+
+**Các lựa chọn đã xem xét:**
+- Giữ nguyên horizon=39 chia 3 nhóm như đã chốt — loại vì không khớp 2 notebook team đã hoàn thiện, sẽ cần thiết kế lại feature set riêng theo nhóm horizon xa mà team chưa làm.
+- HORIZON=10, không chia nhóm — ĐÃ CHỌN, khớp đúng 2 notebook, đơn giản hóa, feature set dùng chung mọi h.
+- Mang cả `recursive_rf.ipynb` vào để so sánh 2 chiến lược — loại, giữ nguyên quyết định "chỉ Direct multi-step, không recursive" đã chốt trước đó.
+- Mang thêm `model_decision_tree.ipynb` (bản single-step riêng, có GridSearchCV+SHAP) — loại khỏi phạm vi lần này, để task riêng sau nếu cần.
+
+**Quyết định:** `HORIZON=10` tuần, KHÔNG chia nhóm, feature set giống nhau cho mọi h=1..10. Chỉ Direct multi-step (không recursive). Chỉ 2 model: Decision Tree và Random Forest. Metric báo cáo SONG SONG cả `weighted_mae`/`weighted_mape` (trọng số IsHoliday x5, đã có sẵn) VÀ MAE/RMSE/WAPE trần (không trọng số, đối chiếu trực tiếp với notebook) — tính riêng cho từng horizon.
+
+**Lý do:** Đồng bộ theo 2 notebook team đã hoàn thiện — không có lý do nghiệp vụ khác ngoài việc đồng bộ này.
+
+**Ảnh hưởng tới các module:**
+- `src/sales_forecast/features/horizon_target.py` (mới) — `add_horizon_targets()`, sinh `target_t+{h}` bằng `groupby(Store)[Weekly_Sales].shift(-h)`, KHÔNG đăng ký vào `configs/features.yaml`/`ALL_BLOCKS` (không phải feature block Giai đoạn 3).
+- `src/sales_forecast/models/direct_multihorizon.py` (mới) — `DirectMultiHorizonModel` (wrapper N estimator độc lập theo horizon, dùng `base_estimator_factory`), `make_direct_decision_tree()`, `make_direct_random_forest()`. NGOẠI LỆ có chủ đích so với interface chuẩn `.fit(X,y)->self`/`.predict(X)->pd.Series` (A12) — API multi-target (`fit(X, y_multi_df)`, `predict(X)->DataFrame`, `predict_horizon(X,h)->Series`) vì Direct multi-step dự báo N target đồng thời. KHÔNG áp dụng cho model single-step khác (`baseline.py` giữ nguyên).
+- `src/sales_forecast/evaluation/metrics.py` — thêm hàm `wape()` (WAPE không trọng số, mẫu số PHẢI có `abs()` — sửa đúng lỗi đã phát hiện trong 1 cell của `direct_multimodel_rf.ipynb` thiếu `abs()` ở mẫu số).
+- `pipelines/run_train_multistep.py` (mới) — pipeline riêng, KHÔNG sửa `run_train_baseline.py`. Dùng chung nền dữ liệu (`build_feature_matrix`, `split_by_date_ratio`) nhưng thêm bước `add_horizon_targets` + vòng lặp fit/predict/metric theo horizon. Ghi `reports/runs/<run_id>/metrics/multistep_metrics.csv` (đầy đủ cột `model, horizon, mae, rmse, wape, wmae, wmape`) — KHÔNG sửa `RUN_HISTORY_FIELDS`/`run_tracking.py` (schema dùng chung có test A25-A33), chỉ ghi 1 dòng tóm tắt/model (trung bình qua horizon) vào `run_history.csv`.
+- `configs/model_direct_multistep.yaml` (mới) — `horizon: 10`, hyperparameter Decision Tree (`max_depth=12, min_samples_split=5, min_samples_leaf=2, random_state=42`) và Random Forest (thêm `n_estimators=200, n_jobs=-1`), đúng giá trị 2 notebook đã dùng.
+
+**Phát hiện thật trong quá trình implement:** `DirectMultiHorizonModel.fit()` ban đầu để sklearn ném lỗi khó hiểu (`ValueError: Found array with 0 sample(s)`) khi 1 horizon không còn dòng train nào sau dropna (dữ liệu quá ngắn so với horizon). Đã sửa: raise `ValueError` tường minh nêu rõ horizon nào thiếu dữ liệu, phát hiện qua test A56 (`tests/test_pipelines/test_run_train_multistep_end_to_end.py::test_fit_raises_clear_error_when_train_has_zero_rows_for_a_horizon`).
+
+**Kết quả đối chiếu sau khi áp dụng:** `pipelines/run_train_multistep.py` chạy thành công end-to-end trên data thật. `train_window: 2700 dòng, valid_window: 1395 dòng` (khớp `run_train_baseline.py`). 20 dòng metric (2 model × 10 horizon), WAPE dao động 0.05-0.11, Random Forest tốt hơn Decision Tree ở mọi horizon (WMAE thấp hơn ~25-40%) — cùng bậc độ lớn với số liệu notebook đã báo cáo. Toàn bộ `pytest tests/ -v` (77 test) pass, coverage tổng 90%, `horizon_target.py`/`direct_multihorizon.py` đạt 100% coverage.
+
+**Test case liên quan:** A53-A56, xem `docs/05_test_plan.md`.
 
 ---
 
