@@ -70,11 +70,30 @@ def _add_has_history(df: pd.DataFrame, train_df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def load_lag_rolling_params_from_config(
+    config_path: str | Path,
+) -> tuple[List[int], List[int]]:
+    """Đọc lags/rolling_windows từ configs/features.yaml (block lag_rolling).
+
+    Fallback về DEFAULT_LAGS/DEFAULT_ROLLING_WINDOWS nếu key không tồn tại
+    trong YAML (backward-compat với config cũ chưa có trường này). Cùng
+    pattern với load_enabled_blocks_from_config — chỉ hàm helper loại này
+    được phép đọc file YAML, các feature block vẫn là hàm thuần.
+    """
+    raw_cfg = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
+    block_cfg = raw_cfg.get("feature_blocks", {}).get("lag_rolling", {})
+    lags = block_cfg.get("lags", DEFAULT_LAGS)
+    rolling_windows = block_cfg.get("rolling_windows", DEFAULT_ROLLING_WINDOWS)
+    return lags, rolling_windows
+
+
 def build_feature_matrix(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
     features_df: pd.DataFrame,
     enabled_blocks: Optional[List[str]] = None,
+    lags: Optional[List[int]] = None,
+    rolling_windows: Optional[List[int]] = None,
 ) -> pd.DataFrame:
     """Ghép feature_matrix cho train_df + test_df (đã concat) theo các block bật.
 
@@ -83,14 +102,16 @@ def build_feature_matrix(
     """
     if enabled_blocks is None:
         enabled_blocks = ALL_BLOCKS
+    lags = lags if lags is not None else DEFAULT_LAGS
+    rolling_windows = rolling_windows if rolling_windows is not None else DEFAULT_ROLLING_WINDOWS
 
     combined = pd.concat([train_df, test_df], ignore_index=True, sort=False)
     combined = _add_has_history(combined, train_df)
 
     if "lag_rolling" in enabled_blocks:
-        combined = add_lag_features(combined, group_cols=["Store"], lags=DEFAULT_LAGS)
+        combined = add_lag_features(combined, group_cols=["Store"], lags=lags)
         combined = add_rolling_features(
-            combined, group_cols=["Store"], windows=DEFAULT_ROLLING_WINDOWS
+            combined, group_cols=["Store"], windows=rolling_windows
         )
 
     if "calendar" in enabled_blocks:

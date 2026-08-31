@@ -17,7 +17,7 @@ Các quyết định về horizon/chiến lược/xử lý dữ liệu đã đư
 | Chiến lược (recursive/direct/hybrid) | Direct multi-step (không recursive) | 2026-08-18 | DTC | Đi kèm quyết định horizon ở trên; tránh sai số dồn (error accumulation) của recursive trên horizon dài 39 tuần |
 | Metric chính | **Cả WMAE và WMAPE**, cùng trọng số IsHoliday x5 — báo cáo song song trong mọi bảng metric | 2026-08-18 | DTC | WMAE khớp đúng luật đánh giá gốc Kaggle (đối chiếu leaderboard); WMAPE chuẩn hóa theo %, dễ so sánh giữa các Dept có quy mô doanh số khác nhau — không đánh đổi lẫn nhau nên báo cáo cả hai thay vì chọn một, xem `01_ideation.md` mục 6 |
 | Xử lý Weekly_Sales âm | Giữ nguyên, không clip về 0 | 2026-08-18 | DTC | 1.285 dòng âm là tín hiệu thật (trả hàng/điều chỉnh sổ sách), không phải nhiễu; không dùng loss/metric giả định target ≥ 0 (loại MSLE, Poisson loss) — xem `01_ideation.md` mục 2.5 và mục 3 vấn đề #1 |
-| Xử lý MarkDown missing | Flag `has_markdown` tường minh (đã chốt — xem `01_ideation.md` mục 2.5) | 2026-08-18 | DTC | Missing 50-64% là MNAR (khuyến mãi chỉ triển khai từ một mốc thời gian), NaN nghĩa là "không có khuyến mãi" chứ không phải "thiếu dữ liệu" — fillna(0) mù quáng sẽ đánh mất phân biệt này |
+| Xử lý MarkDown missing | ~~Flag `has_markdown` tường minh~~ — GHI ĐÈ 2026-08-31, xem mục "Đồng bộ xử lý dữ liệu theo notebooks/01. Preprocessing.ipynb" bên dưới | 2026-08-18 | DTC | Missing 50-64% là MNAR (khuyến mãi chỉ triển khai từ một mốc thời gian), NaN nghĩa là "không có khuyến mãi" chứ không phải "thiếu dữ liệu" — fillna(0) mù quáng sẽ đánh mất phân biệt này |
 | Xử lý cold-start (11 cặp Store-Dept) | Flag `has_history=False` (bool) là feature bắt buộc; fallback prediction dùng giá trị trung bình theo Dept hoặc Store Type khi không có lịch sử lag cá nhân; đo riêng metric nhóm cold-start ở Giai đoạn 7 (Evaluation) | 2026-08-18 | DTC | 11 cặp Store-Dept trong test.csv chưa từng xuất hiện ở train là cold-start thật của chính dataset; không được để lag NaN âm thầm lọt vào model — xem `01_ideation.md` mục 2.5 điểm 4 và mục 3 vấn đề #2 |
 | Phương pháp khoảng tin cậy 95% | Split Conformal Prediction (đã chốt — xem `08_uncertainty_conformal.md`) | 2026-08-18 | DTC | Áp dụng đồng loạt mọi model cây, không cần train lại theo quantile loss |
 | Tỷ lệ tách `calib_window` từ `valid_window` | 50/50 với phần dùng cho Optuna | 2026-08-18 | DTC | Cân bằng giữa đủ dữ liệu cho Optuna tìm best trial và đủ mẫu để calibration cho coverage 95% ổn định — xem `08_uncertainty_conformal.md` mục 3 |
@@ -25,9 +25,10 @@ Các quyết định về horizon/chiến lược/xử lý dữ liệu đã đư
 | Công cụ quản lý môi trường | venv + pip + `pyproject.toml` (đã chốt — xem `06_environment_setup.md`) | 2026-08-18 | DTC | Không cần cài Anaconda/Docker, wheel sẵn cho LightGBM/XGBoost trên Python 3.10–3.12 |
 | Dạng dashboard kết quả | Streamlit app (đã chốt — xem `07_dashboard_spec.md`) | 2026-08-18 | DTC | Tích hợp trực tiếp Python, mentor chạy 1 lệnh `streamlit run` |
 | Run tracking/versioning output | Tự chế run_id + thư mục `runs/<run_id>/` + pointer `latest_run.txt` + `run_history.csv` (đã chốt — xem mục dưới) | 2026-08-19 | DTC | Tránh ghi đè output mỗi lần chạy pipeline, giữ lịch sử để so sánh cải thiện; không dùng MLflow/DVC để tránh dependency nặng |
-| Xử lý CPI/Unemployment missing (585 dòng đuôi test_window) | Forward-fill theo từng Store + flag tường minh `cpi_is_forward_filled`/`unemployment_is_forward_filled` (đã chốt — xem mục dưới) | 2026-08-19 | DTC | 585 dòng = đúng 13 tuần cuối test_window ở cả 45 Store, do độ trễ công bố macro index thật, không phải ngẫu nhiên; forward-fill hợp lý hơn fillna(0)/mean vì CPI/Unemployment biến động rất chậm theo tháng |
+| Xử lý CPI/Unemployment missing (585 dòng đuôi test_window) | Forward-fill theo từng Store + flag tường minh `cpi_is_forward_filled`/`unemployment_is_forward_filled` — GHI ĐÈ MỘT PHẦN 2026-08-31: forward-fill mở rộng sang cả Temperature/Fuel_Price, xem mục "Đồng bộ xử lý dữ liệu theo notebooks/01. Preprocessing.ipynb" bên dưới | 2026-08-19 | DTC | 585 dòng = đúng 13 tuần cuối test_window ở cả 45 Store, do độ trễ công bố macro index thật, không phải ngẫu nhiên; forward-fill hợp lý hơn fillna(0)/mean vì CPI/Unemployment biến động rất chậm theo tháng |
 | Đơn vị dự báo (CẬP NHẬT 2026-08-19) | `(Store, Date)` — GHI ĐÈ quyết định `(Store, Dept, Date)` chốt 2026-08-18, xem mục chi tiết bên dưới | 2026-08-19 | DTC | Giảm độ phức tạp mô hình hóa (81 Dept/Store quá nhiều, nhiều chuỗi ngắn/thưa) + mục tiêu dashboard/báo cáo tập trung cấp Store dễ diễn giải hơn; hệ quả: không còn tạo được `submission.csv` đúng format Kaggle gốc |
 | Buffer nối train_window/valid_window cho Lag/Rolling/Macro | Gộp bảng (train + phần chưa biết target) trước khi tính lag/rolling/macro, tách lại sau — đã implement, chính thức hóa thành quy tắc kiến trúc (xem mục dưới) | 2026-08-19 | DTC | Loại bỏ NaN giả tạo ở các dòng đầu mỗi tập; đúng sơ đồ kiến trúc gốc; đã kiểm chứng bằng thực nghiệm không leakage |
+| Đồng bộ xử lý dữ liệu theo notebook (CẬP NHẬT 2026-08-31) | Đồng bộ `src/` theo `notebooks/01. Preprocessing.ipynb` — 6 điểm cụ thể (aggregate/join theo IsHoliday, MarkDown fillna(0), ffill cả 4 cột macro, macro lag52 cho valid, split theo tỷ lệ 2/3, Feature Engineering trước Split — CHỈ trong `run_train_baseline.py`), xem mục chi tiết bên dưới | 2026-08-31 | Team (DTC xác nhận) | Đồng bộ code giữa `src/sales_forecast/` và 2 nhánh git `feature--preprocessing_eda_data`/`feature/viet-eda-model` đang phát triển song song |
 
 ---
 
@@ -279,6 +280,45 @@ Danh sách đầy đủ 13 ngày (tuần kết thúc) được gắn `IsHoliday=
 **Ảnh hưởng tới các module:** `notebooks/00_eda.ipynb` (mục 2b, đã minh họa bằng biểu đồ có nhãn ngày), `src/sales_forecast/features/` (khi thiết kế feature block holiday ở Giai đoạn 3, cần cân nhắc hiện tượng này), `docs/01_ideation.md` mục 6 (trọng số WMAE/WMAPE x5 dựa trên `IsHoliday`). Không ảnh hưởng code hiện tại vì chưa có feature block holiday nào được implement.
 
 **Test case liên quan:** Chưa cần — sẽ bổ sung vào `docs/05_test_plan.md` khi Giai đoạn 3 chốt cơ chế xử lý cụ thể cho feature holiday.
+
+---
+
+## [2026-08-31] Đồng bộ xử lý dữ liệu theo notebooks/01. Preprocessing.ipynb
+
+**Bối cảnh:** Thành viên team (Tùng, Data Analyst) xây dựng `notebooks/01. Preprocessing.ipynb` thử nghiệm logic tiền xử lý độc lập với `src/sales_forecast/`, đồng thời tồn tại trên 2 nhánh git `feature--preprocessing_eda_data` và `feature/viet-eda-model`. Team họp và chốt: pipeline chính thức đi theo hướng notebook để đồng bộ code giữa các nhánh, GHI ĐÈ 6 điểm đã chốt trước đó trong file này.
+
+**Các lựa chọn đã xem xét:** Giữ nguyên logic cũ trong `src/` (aggregate raise lỗi khi IsHoliday lệch, join chỉ theo Store+Date, MarkDown flag MNAR, ffill chỉ CPI/Unemployment, split theo mốc ngày cố định) — loại vì team đã thống nhất đồng bộ theo notebook cho cả 2 nhánh git đang phát triển song song. Đảo ngược hoàn toàn theo notebook — ĐÃ CHỌN.
+
+**Quyết định:** 6 thay đổi cụ thể, mỗi điểm GHI ĐÈ đúng 1 quyết định cũ ở trên (không xóa quyết định cũ):
+
+1. **Aggregate Dept→Store** (GHI ĐÈ phần IsHoliday của mục "Đổi đơn vị dự báo" [2026-08-19]): `aggregate_to_store_date()` group theo `(Store, Date, IsHoliday)` thay vì `(Store, Date)` + assert/raise khi lệch. Nếu 2 Dept cùng (Store, Date) có IsHoliday khác nhau, kết quả TÁCH THÀNH NHIỀU DÒNG riêng theo từng giá trị IsHoliday, không còn raise `DataContractError`.
+2. **Join features.csv** (GHI ĐÈ ghi chú join trong `03_data_io_diagram.md` mục 1 và giả định A4): `join_features()` join theo `(Store, Date, IsHoliday)` thay vì chỉ `(Store, Date)`. Không còn tách `IsHoliday_train`/`IsHoliday_features` để so sánh — nếu lệch, dòng đó không khớp trên khóa join, các cột từ `features.csv` sẽ là NaN.
+3. **Xử lý MarkDown missing** (GHI ĐÈ quyết định [2026-08-18] "Xử lý MarkDown missing"): `add_markdown_features()` đổi từ giữ NaN + flag `has_markdown_{i}` sang `fillna(0)` trực tiếp, không còn cột flag.
+4. **Xử lý CPI/Unemployment missing** (GHI ĐÈ quyết định [2026-08-19] "Xử lý CPI/Unemployment missing ở đuôi test_window"): `FORWARD_FILL_COLS` trong `macro.py` mở rộng từ `["CPI", "Unemployment"]` sang cả 4 cột `["Temperature", "Fuel_Price", "CPI", "Unemployment"]`.
+5. **Macro cho valid_window (mới hoàn toàn, không GHI ĐÈ quyết định cũ nào):** hàm mới `apply_macro_lag52_to_valid()` ghi đè macro cols của `valid_window` bằng giá trị cách đây 52 tuần, mô phỏng "không biết macro hiện tại" khi đánh giá. CHỈ áp dụng cho `valid_window` — `train_window` vẫn dùng macro thật đồng thời (bất đối xứng có chủ đích, đã xác nhận với team).
+6. **Thứ tự Split vs Feature Engineering** (đảo ngược cục bộ so với invariant #1 CLAUDE.md — xem phạm vi bên dưới): trong `pipelines/run_train_baseline.py`, Feature Engineering (`build_feature_matrix`) chạy TRƯỚC, trên toàn bộ `train_agg` + `test_agg` gộp; sau đó `dropna(subset=["lag_52w"])`; rồi chia `train_window`/`valid_window` theo tỷ lệ 2/3 số ngày duy nhất (`split_by_date_ratio()`, mới tạo trong `src/sales_forecast/splitting/ratio_split.py`) thay vì mốc ngày cố định từ `configs/data.yaml` (`temporal_split()`).
+
+**Phạm vi thay đổi điểm 6 (đã xác nhận với user):** CHỈ áp dụng trong `pipelines/run_train_baseline.py`. KHÔNG sửa CLAUDE.md invariant #1 ("Temporal Split luôn thực hiện TRƯỚC Feature Engineering"), KHÔNG sửa sơ đồ kiến trúc gốc `docs/02_pipeline_architecture.md`. `temporal_split()` (mốc ngày cố định) vẫn giữ nguyên trong `src/sales_forecast/splitting/temporal_split.py`, không bị xóa — có thể vẫn dùng cho các pipeline tương lai (Optuna, Conformal, Evaluation Layer) khi thiết kế thứ tự riêng.
+
+**Lý do:** Đồng bộ code giữa `src/sales_forecast/` và 2 nhánh git đang phát triển song song (`feature--preprocessing_eda_data`, `feature/viet-eda-model`), tránh phân mảnh logic xử lý dữ liệu giữa các thành viên team. Quyết định nghiệp vụ cụ thể theo yêu cầu team, không có lý do kỹ thuật bổ sung ngoài yêu cầu đồng bộ.
+
+**Ảnh hưởng tới các module:**
+- `src/sales_forecast/ingestion/loaders.py` (`aggregate_to_store_date`, `join_features` — sửa)
+- `src/sales_forecast/features/markdown_promo.py` (sửa — bỏ flag)
+- `src/sales_forecast/features/macro.py` (`FORWARD_FILL_COLS` mở rộng; hàm mới `apply_macro_lag52_to_valid`)
+- `src/sales_forecast/features/pipeline.py` (thêm tham số `lags`/`rolling_windows`; hàm mới `load_lag_rolling_params_from_config`)
+- `src/sales_forecast/splitting/ratio_split.py` (mới — `split_by_date_ratio`)
+- `pipelines/run_train_baseline.py` (đổi thứ tự Feature Engineering ↔ Split)
+- `configs/data.yaml` (ghi chú `train_end_date`/`valid_end_date` không còn dùng bởi `run_train_baseline.py`)
+- `tests/test_ingestion/test_aggregate_to_store_date.py`, `test_join_integrity.py` (sửa)
+- `tests/test_features/test_markdown_flag.py`, `test_macro_forward_fill.py` (sửa/mở rộng)
+- `tests/test_features/test_macro_lag52_valid.py` (mới)
+- `tests/test_splitting/test_ratio_split.py` (mới)
+- `tests/test_features/test_feature_config_loading.py` (mở rộng — `load_lag_rolling_params_from_config`)
+
+**Kết quả đối chiếu sau khi áp dụng:** `pipelines/run_train_baseline.py` chạy thành công end-to-end. `train_window: 2700 dòng`, `valid_window: 1395 dòng` — khớp chính xác với số liệu notebook (`train_final.csv` 2700 dòng, `val_set.csv` 1395 dòng). Baseline mới: `naive_same_week_last_year` WMAE=59662.89, WMAPE=0.0599; `simple_decision_tree` WMAE=85249.10, WMAPE=0.0925 (con số không so sánh trực tiếp được với baseline cũ trước đây do thay đổi cả granularity IsHoliday, macro, và cơ chế split — ghi nhận như baseline mới chính thức từ thời điểm này). Toàn bộ `pytest tests/ -v` (62 test) pass, coverage tổng 89%.
+
+**Test case liên quan:** A47 (aggregate/join tách dòng theo IsHoliday), A48 (MarkDown fillna(0)), A51-A52 (đọc lags/rolling_windows từ config — không đổi hành vi so với hard-code cũ), cùng các test mới `test_macro_lag52_valid.py`, `test_ratio_split.py`, mở rộng `test_macro_forward_fill.py` cho Temperature/Fuel_Price — xem `docs/05_test_plan.md`.
 
 ---
 

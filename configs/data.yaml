@@ -17,6 +17,11 @@ raw_files:
 temporal_split:
   # Mốc cắt train/valid/test
   # Format: YYYY-MM-DD
+  # LƯU Ý: train_end_date/valid_end_date KHÔNG còn được pipelines/run_train_baseline.py
+  # sử dụng — pipeline đó nay chia train/valid theo tỷ lệ 2/3 số ngày duy nhất
+  # (src/sales_forecast/splitting/ratio_split.py), xem docs/00_decisions.md
+  # "Đồng bộ xử lý dữ liệu theo notebooks/01. Preprocessing.ipynb". Giữ lại 2 key
+  # này (không xóa) phòng khi có pipeline khác cần mốc ngày cố định.
   train_end_date: "2011-12-31"  # Tham khảo từ 02_pipeline_architecture.md
   valid_end_date: "2012-12-31"
   # test_end_date: được suy ra từ test.csv
