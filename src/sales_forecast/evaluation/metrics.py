@@ -46,3 +46,19 @@ def weighted_mape(
     w = _weights(is_holiday, holiday_weight)
     ape = np.abs(y_true - y_pred) / (np.abs(y_true) + epsilon)
     return float(np.sum(w * ape) / np.sum(w))
+
+
+def wape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """WAPE KHÔNG trọng số IsHoliday — dùng để đối chiếu trực tiếp với số
+    liệu notebooks/viet/multi_step/direct_way/*.ipynb (dự báo Direct
+    multi-step) đã báo cáo.
+
+    CHÚ Ý: mẫu số PHẢI có abs (np.abs(y_true).sum()) — KHÔNG lặp lỗi thiếu abs
+    đã phát hiện ở 1 cell của direct_multimodel_rf.ipynb
+    (wape = |y-pred|.sum()/y_val.sum(), thiếu abs ở mẫu số, khác cell khác
+    cùng file có abs đúng). Với Weekly_Sales âm (giữ nguyên theo quyết định
+    đã chốt — xem docs/00_decisions.md "Xử lý Weekly_Sales âm"), thiếu abs ở
+    mẫu số có thể cho WAPE âm hoặc vô nghĩa khi tổng y_true âm/gần 0."""
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    return float(np.abs(y_true - y_pred).sum() / np.abs(y_true).sum())

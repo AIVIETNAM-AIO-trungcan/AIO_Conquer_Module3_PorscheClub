@@ -6,6 +6,8 @@ TRƯỚC aggregate_to_store_date (xem docs/00_decisions.md [2026-08-19]
 features.csv trở thành 1-1 (không còn N-1 từ góc nhìn nhiều Dept dùng chung
 1 dòng features), xem test_features_join_after_aggregate_is_one_to_one."""
 
+import pandas as pd
+
 from sales_forecast.ingestion.loaders import aggregate_to_store_date, join_features
 
 
@@ -23,18 +25,25 @@ def test_features_join_row_count(sample_train, sample_features):
         "Join features.csv theo (Store,Date) không được làm thay đổi số dòng của train"
 
 
-def test_isholiday_consistency(sample_train, sample_features):
-    """Giả định A4: IsHoliday ở train và features phải khớp nhau sau khi join,
-    lệch nhau phải được phát hiện thay vì âm thầm lấy 1 nguồn.
-
-    Chỉ so sánh các dòng có mặt ở cả 2 nguồn (features.csv không phủ hết mọi
-    tuần trong fixture nhỏ) — dòng thiếu features là vấn đề coverage, không
-    phải mismatch IsHoliday.
-    """
-    joined = join_features(sample_train, sample_features)
-    both_present = joined.dropna(subset=["IsHoliday_features"])
-    mismatches = both_present[both_present["IsHoliday_train"] != both_present["IsHoliday_features"]]
-    assert len(mismatches) == 0, f"Phát hiện {len(mismatches)} dòng lệch IsHoliday giữa 2 nguồn"
+def test_isholiday_mismatch_yields_nan_features_not_error(sample_train):
+    """A47 (mở rộng): join giờ theo (Store, Date, IsHoliday) — xem
+    docs/00_decisions.md "Đồng bộ xử lý dữ liệu theo notebooks/01. Preprocessing.ipynb"
+    (GHI ĐÈ quyết định A4 cũ "IsHoliday phải khớp, lệch phải phát hiện qua 2 cột
+    riêng"). Nếu IsHoliday giữa train và features lệch nhau ở cùng (Store, Date),
+    dòng đó KHÔNG khớp trên khóa join — các cột từ features phải là NaN, không
+    raise lỗi, không mất dòng của df gốc."""
+    mismatched_features = pd.DataFrame({
+        "Store": [1],
+        "Date": pd.to_datetime(["2010-02-12"]),
+        "Temperature": [38.5],
+        "IsHoliday": [False],  # sample_train có IsHoliday=True tại (1, 2010-02-12)
+    })
+    joined = join_features(sample_train, mismatched_features)
+    assert len(joined) == len(sample_train)
+    mismatched_row = joined[
+        (joined["Store"] == 1) & (joined["Date"] == pd.Timestamp("2010-02-12"))
+    ]
+    assert mismatched_row["Temperature"].isna().all()
 
 
 def test_features_join_after_aggregate_is_one_to_one(sample_train, sample_test, sample_features):

@@ -1,14 +1,15 @@
-"""Test aggregate_to_store_date (A39-A41) — docs/05_test_plan.md mục 1.
+"""Test aggregate_to_store_date (A39-A41, A47) — docs/05_test_plan.md mục 1.
 
 Đơn vị dự báo đổi từ (Store, Dept, Date) sang (Store, Date) — xem
-docs/00_decisions.md [2026-08-19] "Đổi đơn vị dự báo".
+docs/00_decisions.md [2026-08-19] "Đổi đơn vị dự báo". Group theo
+(Store, Date, IsHoliday) — xem docs/00_decisions.md "Đồng bộ xử lý dữ liệu
+theo notebooks/01. Preprocessing.ipynb" (GHI ĐÈ phần assert IsHoliday nhất
+quán/raise lỗi của quyết định "Đổi đơn vị dự báo").
 """
 
 import pandas as pd
-import pytest
 
 from sales_forecast.ingestion.loaders import aggregate_to_store_date
-from sales_forecast.ingestion.validators import DataContractError
 
 
 def test_aggregate_sums_weekly_sales_across_dept():
@@ -32,15 +33,17 @@ def test_aggregate_sums_weekly_sales_across_dept():
     assert len(train_agg) == 2  # (Store=1, 1 tuần), (Store=2, 1 tuần)
 
 
-def test_isholiday_inconsistency_raises():
-    """A39 (phần IsHoliday): nếu IsHoliday KHÔNG nhất quán giữa các Dept trong
-    cùng (Store, Date), phải raise lỗi rõ ràng thay vì âm thầm .first() sai."""
+def test_isholiday_inconsistent_splits_into_separate_rows():
+    """A47: nếu IsHoliday KHÔNG nhất quán giữa các Dept trong cùng (Store, Date),
+    aggregate phải TÁCH THÀNH NHIỀU DÒNG riêng theo từng giá trị IsHoliday quan
+    sát được, KHÔNG raise lỗi (đảo ngược quyết định cũ — xem docs/00_decisions.md
+    "Đồng bộ xử lý dữ liệu theo notebooks/01. Preprocessing.ipynb")."""
     train_df = pd.DataFrame({
         "Store": [1, 1],
         "Dept": [1, 2],
         "Date": pd.to_datetime(["2010-02-05", "2010-02-05"]),
         "Weekly_Sales": [100.0, 50.0],
-        "IsHoliday": [False, True],  # vi phạm: cùng Store-Date nhưng khác IsHoliday
+        "IsHoliday": [False, True],  # lệch: cùng Store-Date nhưng khác IsHoliday
     })
     test_df = pd.DataFrame({
         "Store": [1],
@@ -48,8 +51,15 @@ def test_isholiday_inconsistency_raises():
         "Date": pd.to_datetime(["2010-03-05"]),
         "IsHoliday": [False],
     })
-    with pytest.raises(DataContractError):
-        aggregate_to_store_date(train_df, test_df)
+    train_agg, _ = aggregate_to_store_date(train_df, test_df)
+    same_store_date = train_agg[
+        (train_agg["Store"] == 1) & (train_agg["Date"] == pd.Timestamp("2010-02-05"))
+    ]
+    assert len(same_store_date) == 2  # tách thành 2 dòng riêng theo IsHoliday
+    false_row = same_store_date[same_store_date["IsHoliday"] == False].iloc[0]
+    true_row = same_store_date[same_store_date["IsHoliday"] == True].iloc[0]
+    assert false_row["Weekly_Sales"] == 100.0
+    assert true_row["Weekly_Sales"] == 50.0
 
 
 def test_dept_column_removed():

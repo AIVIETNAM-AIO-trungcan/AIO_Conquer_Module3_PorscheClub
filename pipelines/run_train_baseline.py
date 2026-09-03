@@ -1,8 +1,12 @@
-"""Orchestration: load raw -> validate -> temporal split -> feature matrix ->
-fit baseline models -> đo WMAE/WMAPE trên valid_window.
+"""Orchestration: load raw -> validate -> aggregate -> feature matrix ->
+split (ty le 2/3) -> fit baseline models -> đo WMAE/WMAPE trên valid_window.
 
 Chỉ orchestration (CLAUDE.md mục 4 rule: pipelines/ không chứa logic nghiệp vụ,
 mọi logic thật nằm trong src/sales_forecast/).
+
+Thứ tự Feature Engineering TRƯỚC Split (đảo ngược cục bộ so với invariant #1
+CLAUDE.md, CHỈ áp dụng trong pipeline này) — quyết định team, xem
+docs/00_decisions.md "Đồng bộ xử lý dữ liệu theo notebooks/01. Preprocessing.ipynb".
 
 Cách dùng:
     python pipelines/run_train_baseline.py
@@ -22,7 +26,12 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from sales_forecast.evaluation.metrics import weighted_mae, weighted_mape
 from sales_forecast.explainability.tree_plot import plot_decision_tree
-from sales_forecast.features.pipeline import build_feature_matrix, load_enabled_blocks_from_config
+from sales_forecast.features.macro import apply_macro_lag52_to_valid
+from sales_forecast.features.pipeline import (
+    build_feature_matrix,
+    load_enabled_blocks_from_config,
+    load_lag_rolling_params_from_config,
+)
 from sales_forecast.ingestion.loaders import aggregate_to_store_date, load_raw_data
 from sales_forecast.ingestion.validators import (
     validate_features_schema,
@@ -33,7 +42,7 @@ from sales_forecast.ingestion.validators import (
     validate_train_schema,
 )
 from sales_forecast.models.baseline import NaiveSameWeekLastYear, SimpleDecisionTreeBaseline
-from sales_forecast.splitting.temporal_split import temporal_split
+from sales_forecast.splitting.ratio_split import split_by_date_ratio
 from sales_forecast.utils.run_tracking import start_run
 
 
@@ -76,37 +85,40 @@ def _run(run_ctx, data_cfg: dict, baseline_cfg: dict) -> int:
     validate_test_aggregated_schema(test_agg)
     print(f"train (aggregated): {train_agg.shape}, test (aggregated): {test_agg.shape}")
 
-    print("\n=== 2. Temporal Split ===")
-    split_date = pd.Timestamp(data_cfg["temporal_split"]["valid_end_date"])
-    train_end = pd.Timestamp(data_cfg["temporal_split"]["train_end_date"])
-    horizon_weeks = int((split_date - train_end).days / 7)
-    train_w, valid_w = temporal_split(train_agg, split_date=split_date, horizon_weeks=horizon_weeks)
-    print(f"train_window: {train_w.shape}, valid_window: {valid_w.shape}, horizon_weeks={horizon_weeks}")
-
-    print("\n=== 3. Feature Engineering ===")
+    print("\n=== 2. Feature Engineering (chay TRUOC split - quyet dinh team, xem")
+    print("=== docs/00_decisions.md 'Dong bo xu ly du lieu theo notebooks/01. Preprocessing.ipynb') ===")
+    # Đảo thứ tự CỤC BỘ trong pipeline này: tính Lag/Rolling/Calendar/MarkDown/Macro
+    # trên toàn bộ train_agg + test_agg gộp TRƯỚC khi tách train/valid — khớp
+    # notebooks/01. Preprocessing.ipynb Cell 4-10. KHÔNG áp dụng cho kiến trúc
+    # chung (CLAUDE.md invariant #1, docs/02_pipeline_architecture.md không đổi).
     enabled_blocks = load_enabled_blocks_from_config(REPO_ROOT / "configs" / "features.yaml")
+    lags, rolling_windows = load_lag_rolling_params_from_config(REPO_ROOT / "configs" / "features.yaml")
     print(f"enabled_blocks (tu configs/features.yaml): {enabled_blocks}")
-    valid_w_no_target = valid_w.drop(columns=["Weekly_Sales"])
     feature_matrix = build_feature_matrix(
-        train_w, valid_w_no_target, raw["features"], enabled_blocks=enabled_blocks
+        train_agg, test_agg, raw["features"],
+        enabled_blocks=enabled_blocks, lags=lags, rolling_windows=rolling_windows,
     )
-    fm_train = feature_matrix[feature_matrix["Date"] <= train_w["Date"].max()]
-    fm_valid = feature_matrix[feature_matrix["Date"] > train_w["Date"].max()]
-    print(f"feature_matrix: {feature_matrix.shape} (train slice {fm_train.shape}, valid slice {fm_valid.shape})")
+    print(f"feature_matrix (truoc dropna lag_52w): {feature_matrix.shape}")
 
-    y_train = train_w.set_index(["Store", "Date"])["Weekly_Sales"]
-    y_train = y_train.reindex(
-        pd.MultiIndex.from_frame(fm_train[["Store", "Date"]])
-    ).to_numpy()
-    y_valid_true = valid_w.set_index(["Store", "Date"])["Weekly_Sales"]
-    y_valid_true = y_valid_true.reindex(
-        pd.MultiIndex.from_frame(fm_valid[["Store", "Date"]])
-    ).to_numpy()
+    print("\n=== 3. Temporal Split (theo ty le 2/3 so ngay duy nhat) ===")
+    # Chi giu cac dong du lich su lag_52w (khop notebook: dropna(subset=['Lag_52'])
+    # truoc khi chia) - loai 52 tuan dau moi Store khong du du lieu lag dai nhat.
+    feature_matrix_full_history = feature_matrix.dropna(subset=["lag_52w"])
+    train_master = feature_matrix_full_history[feature_matrix_full_history["Weekly_Sales"].notna()]
+    train_w, valid_w = split_by_date_ratio(train_master, ratio=2 / 3)
+    print(f"train_window: {train_w.shape}, valid_window: {valid_w.shape}")
 
-    is_holiday_valid = fm_valid["IsHoliday_train"].to_numpy()
+    # Macro của valid_window bị ghi đè bằng giá trị cách đây 52 tuần (mô phỏng
+    # "không biết macro hiện tại" khi đánh giá) — CHỈ áp dụng cho valid_w,
+    # train_w giữ nguyên macro thật đồng thời (bất đối xứng có chủ đích).
+    valid_w = apply_macro_lag52_to_valid(valid_w, full_macro_history=feature_matrix)
 
-    X_train = fm_train.drop(columns=["Weekly_Sales"], errors="ignore")
-    X_valid = fm_valid.drop(columns=["Weekly_Sales"], errors="ignore")
+    y_train = train_w["Weekly_Sales"].to_numpy()
+    y_valid_true = valid_w["Weekly_Sales"].to_numpy()
+    is_holiday_valid = valid_w["IsHoliday"].to_numpy()
+
+    X_train = train_w.drop(columns=["Weekly_Sales"], errors="ignore")
+    X_valid = valid_w.drop(columns=["Weekly_Sales"], errors="ignore")
 
     print("\n=== 4. Baseline Models ===")
     models = {
@@ -142,7 +154,7 @@ def _run(run_ctx, data_cfg: dict, baseline_cfg: dict) -> int:
         {
             "config_snapshot": {"data": data_cfg, "baseline": baseline_cfg},
             "metrics_summary": metrics_summary,
-            "horizon_weeks": horizon_weeks,
+            "split_method": "ratio_2_3_of_unique_dates",
         }
     )
     run_ctx.append_run_history(history_rows)

@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from sales_forecast.evaluation.metrics import weighted_mae, weighted_mape
+from sales_forecast.evaluation.metrics import wape, weighted_mae, weighted_mape
 
 
 def test_weighted_mae_holiday_weight_is_5x():
@@ -43,3 +43,26 @@ def test_weighted_mape_handles_zero_sales_without_inf():
     is_holiday = np.array([False, False])
     wmape = weighted_mape(y_true, y_pred, is_holiday)
     assert np.isfinite(wmape)
+
+
+def test_wape_correct_formula_with_abs_in_denominator():
+    """A55: WAPE phải dùng đúng công thức có abs() ở MẪU SỐ. Dựng y_true có
+    số âm để phân biệt rõ kết quả đúng (có abs) vs sai (thiếu abs, như 1 cell
+    của direct_multimodel_rf.ipynb) — 2 công thức cho ra kết quả khác nhau
+    rõ rệt khi tổng y_true có dấu âm."""
+    y_true = np.array([-100.0, 50.0])  # sum = -50, abs(sum từng phần tử) = 150
+    y_pred = np.array([-90.0, 60.0])   # |errors| = [10, 10], sum = 20
+    result = wape(y_true, y_pred)
+    correct_with_abs = 20.0 / 150.0  # đúng: abs(y_true).sum() = 150
+    wrong_without_abs = 20.0 / -50.0  # sai (lỗi notebook): y_true.sum() = -50 (âm)
+    assert np.isclose(result, correct_with_abs)
+    assert not np.isclose(result, wrong_without_abs)
+
+
+def test_wape_basic_positive_case():
+    """A55: trường hợp cơ bản không có số âm, WAPE = sum(|error|)/sum(|y_true|)."""
+    y_true = np.array([100.0, 200.0])
+    y_pred = np.array([90.0, 180.0])
+    result = wape(y_true, y_pred)
+    expected = (10.0 + 20.0) / (100.0 + 200.0)
+    assert np.isclose(result, expected)
