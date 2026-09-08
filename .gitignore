@@ -84,3 +84,5 @@ __pycache__/
 **/data/
 **/models/
 *.joblib
+pyproject.toml
+poetry.lock
